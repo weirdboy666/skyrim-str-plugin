@@ -7,19 +7,25 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
-    env:
-      VCPKG_ROOT: C:\vcpkg
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
+
+      - name: Installer Ninja
+        shell: pwsh
+        run: |
+          pip install ninja
+          $bin = python -c "import ninja; print(ninja.BIN_DIR)"
+          Add-Content -Path $env:GITHUB_PATH -Value $bin
 
       - name: Compilateur MSVC
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      - name: Installer Ninja
-        run: choco install ninja -y --no-progress
+      - name: Utiliser le vcpkg de la machine
+        shell: pwsh
+        run: Add-Content -Path $env:GITHUB_ENV -Value "VCPKG_ROOT=C:\vcpkg"
 
       - name: Dossier triplets (requis par le preset)
         shell: pwsh
@@ -37,9 +43,9 @@ jobs:
           name: HelloWorld-dll
           path: build/release/*.dll
 
-      - name: Logs vcpkg (si échec)
+      - name: Afficher les logs (si échec)
         if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: vcpkg-logs
-          path: C:\vcpkg\buildtrees\**\*.log
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse build/release -Include *-out.log,*-err.log,vcpkg-manifest-install.log -ErrorAction SilentlyContinue |
+            ForEach-Object { "===== $($_.FullName)"; Get-Content $_.FullName -Tail 40 }
